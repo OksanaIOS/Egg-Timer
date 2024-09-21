@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import AVFoundation
 
 class ViewController: UIViewController {
     
@@ -40,17 +41,14 @@ class ViewController: UIViewController {
         return element
     }()
     
-    private lazy var softImageView = UIImageView.makeEggImageView(named: "soft_egg")
-    private lazy var mediumImageView = UIImageView.makeEggImageView(named: "medium_egg")
-    private lazy var hardImageView = UIImageView.makeEggImageView(named: "hard_egg")
     
+    private let softImageView = UIImageView(imageName: "soft_egg")
+    private let mediumImageView = UIImageView(imageName: "medium_egg")
+    private let hardImageView = UIImageView(imageName: "hard_egg")
 
-    private lazy var softButton = UIButton.makeButton(title: "Soft", target: self, action: #selector(eggsButtonTupped))
-    private lazy var mediumButton = UIButton.makeButton(title: "Medium", target: self, action: #selector(eggsButtonTupped))
-    private lazy var hardButton = UIButton.makeButton(title: "Hard", target: self, action: #selector(eggsButtonTupped))
-    
-
-    
+    private let softButton = UIButton(text: "Soft")
+    private let mediumButton = UIButton(text: "Medium")
+    private let hardButton = UIButton(text: "Hard")
     
     private lazy var timerView: UIView  = {
         let element = UIView()
@@ -61,12 +59,21 @@ class ViewController: UIViewController {
     
     private lazy var progressView: UIProgressView  = {
         let element = UIProgressView()
+        element.progressTintColor = .systemYellow
+        element.trackTintColor = .systemGray
         
         element.translatesAutoresizingMaskIntoConstraints = false
         return element
     }()
     
+    //MARK: - Private Properties
     
+    private let eggTimes = ["Soft": 300, "Medium": 420, "Hard": 720]
+    private var totalTime = 0
+    private var secondPassed = 0
+    private var timer = Timer()
+    private var player: AVAudioPlayer?
+    private var nameSoundTimer = "alarm_sound"
     
     
     
@@ -81,9 +88,38 @@ class ViewController: UIViewController {
         
         
     }
-    @objc func eggsButtonTupped(_ sender: UIButton) {
-        print(sender.currentTitle)
+    
+    //MARK: - Business Logic
+    
+    private func playSound(_ soundName: String) {
+        guard let url = Bundle.main.url(forResource: soundName, withExtension: "mp3") else { return }
+        
+        player = try! AVAudioPlayer(contentsOf: url)
+        player?.play()
     }
+    
+    @objc func eggsButtonTupped(_ sender: UIButton) {
+        let hardness = sender.titleLabel?.text ?? "error"
+        titleLabel.text = "You should \(hardness)"
+        totalTime = eggTimes[hardness] ?? 0
+        timer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(updateTimer), userInfo: nil, repeats: true)
+    }
+        
+        @objc private func updateTimer() {
+            if secondPassed < totalTime {
+                secondPassed += 1
+                let percentageProgress = Float(secondPassed) / Float(totalTime)
+                progressView.setProgress(percentageProgress, animated: true)
+            } else {
+                playSound(nameSoundTimer)
+                timer.invalidate()
+                secondPassed = 0
+                titleLabel.text = "Thats's done! Let's go repeats?"
+                progressView.setProgress(1, animated: true)
+            }
+            
+        }
+    
 }
 //MARK: - Set Views and Set Constraints
     
@@ -99,9 +135,15 @@ extension ViewController {
         eggsStackView.addArrangedSubview(mediumImageView)
         eggsStackView.addArrangedSubview(hardImageView)
         
+        timerView.addSubview(progressView)
+        
         softImageView.addSubview(softButton)
         mediumImageView.addSubview(mediumButton)
         hardImageView.addSubview(hardButton)
+        
+        softButton.addTarget(self, action: #selector(eggsButtonTupped), for: .touchUpInside)
+        mediumButton.addTarget(self, action: #selector(eggsButtonTupped), for: .touchUpInside)
+        hardButton.addTarget(self, action: #selector(eggsButtonTupped), for: .touchUpInside)
         
         
     }
@@ -141,28 +183,29 @@ extension ViewController {
 
 //MARK: - extension ImageView
         
-    private extension UIImageView {
-        static func makeEggImageView(named imageName: String) -> UIImageView {
-        let imageView = UIImageView(image: UIImage(named: imageName))
-        imageView.contentMode = .scaleAspectFit
-        imageView.isUserInteractionEnabled = true
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        return imageView
+
+extension UIImageView {
+    convenience init(imageName: String) {
+        self.init()
+        self.image = UIImage(named: imageName)
+        self.contentMode = .scaleAspectFit
+        self.isUserInteractionEnabled = true
+        self.translatesAutoresizingMaskIntoConstraints = false
+        
     }
 }
         
-private extension UIButton {
-    static func makeButton(title: String, target: Any?, action: Selector) -> UIButton {
-        let button = UIButton()
-        button.setTitle(title, for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 18, weight: .black)
-        button.tintColor = .white
-        button.addTarget(target, action:action, for: .touchUpInside)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
+
+extension UIButton {
+    convenience init(text: String) {
+        self.init()
+        self.setTitle(text, for: .normal)
+        self.titleLabel?.font = .systemFont(ofSize: 18, weight: .black)
+        self.tintColor = .white
+        self.translatesAutoresizingMaskIntoConstraints = false
+        
     }
 }
-        
     
 #Preview {
     ViewController()
